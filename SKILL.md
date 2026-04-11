@@ -5,12 +5,13 @@ description: |
   Use when: 快速搜索、搜一下、查一下、先帮我看看、快速了解、找资料、找链接、read this page、summarize this page
   DO NOT TRIGGER when: 需要多轮深度调研、知识图谱沉淀、系统性证据链分析、正式研究报告
 metadata:
-  version: "1.5.0"
+  version: "1.5.1"
   category: research
   license: MIT
   last_updated: "2026-04-12"
   derived_from: "insight-probe"
   changelog: |
+    1.5.1 — 强调必须以列表形式展示结果，不得输出原始 JSON 或零散链接
     1.5.0 — 六语言搜索支持：中文、英语、法语、日语、俄语、德语同时搜索，自动合并去重
     1.4.0 — 修复超时处理误区：-o 文件已由 opencli 增量写入；B站字幕已由 opencli 自动拉取
     1.3.0 — 修复 opencli --sources JSON 结构解析问题；curl searxng 作为可靠备选
@@ -179,6 +180,8 @@ curl -s "http://127.0.0.1:10086/search?q=$(echo "<keyword>" | python3 -c 'import
 - **最终展示不设硬性上限**，按内容相关性排序后全部展示
 
 ### 输出格式：搜索结果列表
+
+> **⚠️ 核心要求：必须以列表形式展示结果给用户，不得仅输出原始 JSON 或零散链接。**
 
 搜索结果按相关性从高到低排列，每条包含：
 
