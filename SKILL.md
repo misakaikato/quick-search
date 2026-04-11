@@ -433,12 +433,22 @@ opencli web search "量子计算" --sources searxng,zhihu,bilibili,arxiv,google 
 | 德语 | `searxng` | searxng 自动覆盖德语区引擎 |
 
 **执行方式**：
-1. 六条搜索命令同时发出（并发执行），各自写入独立临时文件
-2. 各自解析后合并，按 URL 去重，再按内容相似度去重
-3. searxng 返回结果天然含 content，优先使用；其他语言结果无 content 时，用 `opencli web read` 补充抓取
-4. 按相关性排序后展示
+1. **先将关键词译成六种语言**（agent 自行翻译，不调用额外工具）
+2. 六条搜索命令同时发出（并发执行），各自写入独立临时文件
+3. 各自解析后合并，按 URL 去重，再按内容相似度去重
+4. searxng 返回结果天然含 content，优先使用；其他语言结果无 content 时，用 `opencli web read` 补充抓取
+5. 按相关性排序后展示
 
-**关键词翻译**：直接用同一关键词搜索各语言版本（不做机器翻译），searxng 会自动路由到对应语言区引擎。
+**关键词翻译示例**（以"量子计算"为例）：
+
+| 语言 | 翻译 |
+|------|------|
+| 中文 | 量子计算 |
+| 英语 | quantum computing |
+| 法语 | informatique quantique |
+| 日语 | 量子コンピューティング |
+| 俄语 | квантовые вычисления |
+| 德语 | Quantencomputing |
 
 **摘要翻译规则**：
 - 中文来源 → 保持原文
