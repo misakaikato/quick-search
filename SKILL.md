@@ -5,12 +5,13 @@ description: |
   Use when: 快速搜索、搜一下、查一下、先帮我看看、快速了解、找资料、找链接、read this page、summarize this page
   DO NOT TRIGGER when: 需要多轮深度调研、知识图谱沉淀、系统性证据链分析、正式研究报告
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
   category: research
   license: MIT
   last_updated: "2026-04-12"
   derived_from: "insight-probe"
   changelog: |
+    1.5.0 — 六语言搜索支持：中文、英语、法语、日语、俄语、德语同时搜索，自动合并去重
     1.4.0 — 修复超时处理误区：-o 文件已由 opencli 增量写入；B站字幕已由 opencli 自动拉取
     1.3.0 — 修复 opencli --sources JSON 结构解析问题；curl searxng 作为可靠备选
     1.2.0 — searxng 每次必选；社区类作为通用源；摘要统一中文，英文自动翻译
@@ -123,21 +124,33 @@ for r in results:
 
 ### 默认流程
 
-1. **判断内容类型** → 区分"中国传统化"与"非中国传统化"
-2. **非中国传统化内容**：必须进行中英文双语搜索
-3. **中国传统化内容**：只做中文搜索（`searxng`, `daizhige`, `zhihu`, `xiaohongshu`）
-4. **searxng 每次必选**，作为主数据源之一
-5. **社区类（zhihu, xiaohongshu, bilibili）作为通用源**，与其他类型数据源并列使用
-6. 执行搜索，根据 JSON 结构正确解析（见"JSON 解析规范"）
-7. **超时后立即检查 -o 文件**：若 opencli 超时退出，先检查 `/tmp/search_result.json` 是否有内容，有则直接解析，不再走 fallback；无结果或结果过少才走 fallback
-8. **如果 opencli 结果大部分缺少 content，改用 curl searxng 获取可靠摘要**
-9. 对前 5 条高质量来源读取正文（规则见"输出格式"）
-10. 输出搜索结果列表，英文摘要自动翻译为中文
+1. **六语言并行搜索**：同时用以下六种语言搜索关键词
+   - 中文（简体）、英语、法语、日语、俄语、德语
+   - 每种语言分别选最合适的数据源（见"多语言搜索数据源配置"）
+2. **searxng 每次必选**，作为所有语言的共同主数据源
+3. **searxng 返回结果含 content**，直接使用；其他语言搜索走 `opencli web search`
+4. 搜索后合并所有语言结果，按 URL 去重 + 按内容相似度去重
+5. **超时后立即检查 -o 文件**：若 opencli 超时退出，先检查 `/tmp/search_result.json` 是否有内容，有则直接解析，不再走 fallback
+6. 对前 5 条高质量来源读取正文（规则见"输出格式"）
+7. 输出搜索结果列表，外语摘要自动翻译为中文
 
 ### 搜索命令
 
+六语言并行搜索，每种语言独立命令：
+
 ```bash
-opencli web search "<keyword>" --sources searxng,daizhige,zhihu,xiaohongshu,bilibili --limit 30 -f json -o /tmp/search_result.json
+# 中文
+opencli web search "<keyword>" --sources searxng,zhihu,xiaohongshu,bilibili --limit 30 -f json -o /tmp/search_zh.json
+# 英语
+opencli web search "<keyword>" --sources searxng,google,reddit,hackernews --limit 30 -f json -o /tmp/search_en.json
+# 法语
+opencli web search "<keyword>" --sources searxng --limit 30 -f json -o /tmp/search_fr.json
+# 日语
+opencli web search "<keyword>" --sources searxng --limit 30 -f json -o /tmp/search_ja.json
+# 俄语
+opencli web search "<keyword>" --sources searxng --limit 30 -f json -o /tmp/search_ru.json
+# 德语
+opencli web search "<keyword>" --sources searxng --limit 30 -f json -o /tmp/search_de.json
 ```
 
 ### SearXNG Fallback
@@ -192,9 +205,9 @@ curl -s "http://127.0.0.1:10086/search?q=$(echo "<keyword>" | python3 -c 'import
 - 博客（blog）
 - 学术（arXiv / 学术机构）
 
-**中英文双语结果格式**：
-- 英文来源摘要翻译为中文，标注 `[译自 <source>]`
-- 中文来源摘要保持原文
+**六语言结果格式**：
+- 中文来源 → 保持原文
+- 非中文来源（英/法/日/俄/德）→ 翻译为中文，标注 `[译自 <语言>.<source>]`
 - 专业术语保留英文原文
 
 示例：
@@ -404,30 +417,33 @@ opencli web search "iPhone 16 值得买吗" --sources searxng,zhihu,xiaohongshu,
 opencli web search "量子计算" --sources searxng,zhihu,bilibili,arxiv,google --limit 30 -f json
 ```
 
-### 中英文双语搜索规则
+### 六语言搜索规则
 
-**适用条件**：内容不属于中国传统化主题时，必须进行中英文双语搜索。
+**核心原则**：默认对所有搜索主题进行六语言（中文、英语、法语、日语、俄语、德语）并行搜索，不再区分"中国传统化"与"非中国传统化"。
 
-**判断标准**：以下情况视为"非中国传统化内容"，必须双语搜索：
-- 科学技术、编程开发、学术研究类
-- 国际新闻、政治经济类
-- 现代生活、消费产品类
-- 哲学思想、历史（除中国历史外）类
-- 英文关键词直接搜索时
+**多语言数据源配置**：
 
-**判断为中国传统化内容时**：可只做中文搜索
-- 中国传统神话（如"女娲"、"后羿"）、中医、风水、国画、戏曲、儒家典籍等
+| 语言 | 优先数据源 | 说明 |
+|------|-----------|------|
+| 中文 | `searxng`, `zhihu`, `xiaohongshu`, `bilibili` | 中文社区 + 通用 |
+| 英语 | `searxng`, `google`, `reddit`, `hackernews` | 英文社区 + 通用 |
+| 法语 | `searxng` | searxng 自动覆盖法语区引擎 |
+| 日语 | `searxng` | searxng 自动覆盖日本引擎 |
+| 俄语 | `searxng` | searxng 自动覆盖俄罗斯引擎 |
+| 德语 | `searxng` | searxng 自动覆盖德语区引擎 |
 
-**双语搜索执行方式**：
-1. 用中文关键词搜索，选中文优先数据源（`searxng`, `zhihu`, `xiaohongshu`, `bilibili`）
-2. 用英文关键词搜索，选英文优先数据源（`searxng`, `google`, `hackernews`, `reddit`）
-3. 合并去重，按相关性重新排序
+**执行方式**：
+1. 六条搜索命令同时发出（并发执行），各自写入独立临时文件
+2. 各自解析后合并，按 URL 去重，再按内容相似度去重
+3. searxng 返回结果天然含 content，优先使用；其他语言结果无 content 时，用 `opencli web read` 补充抓取
+4. 按相关性排序后展示
+
+**关键词翻译**：直接用同一关键词搜索各语言版本（不做机器翻译），searxng 会自动路由到对应语言区引擎。
 
 **摘要翻译规则**：
-- 英文来源的摘要 → 翻译为中文
-- 中文来源的摘要 → 保持中文
-- 翻译时保留专业术语的英文原文（如"Transformer"、"LLM"、"API"等）
-- 翻译后加标注：`[译自 <source>]`
+- 中文来源 → 保持原文
+- 非中文来源（英/法/日/俄/德）→ 翻译为中文，标注 `[译自 <语言>.<source>]`
+- 专业术语保留英文原文（如"Transformer"、"API"、"LLM"等）
 
 ### 来源筛选规则
 
